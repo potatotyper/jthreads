@@ -1,0 +1,29 @@
+# Build artifacts
+/build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Editor/IDE
+.vscode/
+*.swp
+
+# Node
+node_modules/
+
+# Visualizer output
+visualizer/node_modules/
+
+# Traces
+trace.jsonl
+
+# Misc
+*.o
+*.obj
+*.exe
+*.log
+*.env
+
+# Build
+build/
