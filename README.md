@@ -40,7 +40,6 @@ The visualizer is in `visualizer/` and uses React + TypeScript + Vite.
 
 ```bash
 cd visualizer
-nvm use || nvm install
 npm install
 npm run dev
 ```
