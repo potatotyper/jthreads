@@ -2,69 +2,23 @@
 #include "jthreads/tracer.h"
 #include <utility>
 #include <chrono>
-#include <sstream>
-#include <iomanip>
-#include <unordered_map>
-
-namespace {
-std::chrono::steady_clock::time_point program_start_time() {
-  static const auto t0 = std::chrono::steady_clock::now();
-  return t0;
-}
-
-double relative_time_now_seconds() {
-  return std::chrono::duration_cast<std::chrono::duration<double>>(
-    std::chrono::steady_clock::now() - program_start_time()
-  ).count();
-}
-
-uint64_t thread_number() {
-  static std::mutex map_mtx;
-  static std::unordered_map<std::thread::id, uint64_t> ids;
-  static uint64_t next_id = 1;
-
-  std::lock_guard<std::mutex> lk(map_mtx);
-  const auto it = ids.find(std::this_thread::get_id());
-  if (it != ids.end()) {
-    return it->second;
-  }
-
-  const uint64_t assigned = next_id++;
-  ids.emplace(std::this_thread::get_id(), assigned);
-  return assigned;
-}
-}
 
 void FixedThreadPool::trace_event(
   const char* event,
   int64_t task_id,
   int64_t duration_us,
   int64_t queue_size,
-  const char* state
+  const char* state,
+  const char* lock_name,
+  const char* flag_name,
+  int64_t flag_value
 ) {
-  std::ostringstream oss;
-  oss << "{\"event\":\"" << event << "\"";
-  oss << ",\"state\":\"" << (state != nullptr ? state : "n/a") << "\"";
-
-  if (task_id >= 0) {
-    oss << ",\"task_id\":" << task_id;
-  }
-  if (queue_size >= 0) {
-    oss << ",\"queue_size\":" << queue_size;
-  }
-  if (duration_us >= 0) {
-    oss << ",\"duration_us\":" << duration_us;
-  }
-
-  oss << ",\"time_since_started_s\":" << std::fixed << std::setprecision(6) << relative_time_now_seconds();
-  oss << ",\"thread\":" << thread_number();
-
-  oss << '}';
-  Tracer::emit(oss.str());
+  Tracer::emit_event(event, state, task_id, duration_us, queue_size, lock_name, flag_name, flag_value);
 }
 
 FixedThreadPool::FixedThreadPool(size_t num_workers) {
   (void)num_workers;
+  trace_event("flag_set", -1, -1, -1, "pool_running", nullptr, "running", 1);
   trace_event("pool_start", -1, -1, -1, "starting_workers");
   for (size_t i = 0; i < num_workers; ++i) {
     workers_.emplace_back([this]{ worker_loop(); });
@@ -79,6 +33,7 @@ void FixedThreadPool::shutdown() {
   trace_event("shutdown_begin");
   bool expected = true;
   if (running_.compare_exchange_strong(expected, false)) {
+    trace_event("flag_set", -1, -1, -1, "pool_stopping", nullptr, "running", 0);
     tasks_cv_.notify_all();
     trace_event("shutdown_notify_all", -1, -1, -1, "waking_workers");
     for (auto &t : workers_) {
@@ -100,6 +55,7 @@ void FixedThreadPool::worker_loop() {
   while (running_) {
     std::pair<uint64_t, std::function<void()>> task_pair;
 
+    trace_event("lock_attempt", -1, -1, -1, "waiting", "tasks_mtx");
     const auto lock_begin = std::chrono::steady_clock::now();
     {
       std::unique_lock<std::mutex> lk(tasks_mtx_);
@@ -108,6 +64,7 @@ void FixedThreadPool::worker_loop() {
         lock_end - lock_begin
       ).count();
       trace_event("worker_queue_lock_acquired", -1, lock_wait_us);
+      trace_event("lock_acquired", -1, lock_wait_us, -1, "held", "tasks_mtx");
 
       trace_event("worker_wait_begin", -1, -1, static_cast<int64_t>(tasks_.size()), "blocked_on_condition");
       const auto wait_begin = std::chrono::steady_clock::now();
@@ -120,6 +77,7 @@ void FixedThreadPool::worker_loop() {
       trace_event("worker_wait_end", -1, wait_us, static_cast<int64_t>(tasks_.size()), "woken");
 
       if (!running_ && tasks_.empty()) {
+        trace_event("lock_released", -1, -1, 0, "released", "tasks_mtx");
         trace_event("worker_stop", -1, -1, 0, "shutdown_no_work");
         return;
       }
@@ -131,6 +89,14 @@ void FixedThreadPool::worker_loop() {
         -1,
         static_cast<int64_t>(tasks_.size()),
         "ready_to_run"
+      );
+      trace_event(
+        "lock_released",
+        static_cast<int64_t>(task_pair.first),
+        -1,
+        static_cast<int64_t>(tasks_.size()),
+        "released",
+        "tasks_mtx"
       );
     }
 

@@ -1,90 +1,78 @@
 import { FlagPoint, LockWaitInterval, TaskInterval, ThreadSnapshot, TraceEvent } from "./types";
 
-type CodePoint = {
-  currentCode: string;
-  sourceLocation: string;
+type FunctionPoint = {
+  currentFunction: string;
 };
 
-const EVENT_CODE_MAP: Record<string, CodePoint> = {
+const EVENT_FUNCTION_MAP: Record<string, FunctionPoint> = {
   worker_start: {
-    currentCode: "enter worker loop",
-    sourceLocation: "src/jthreads/threadpool.cpp:113",
+    currentFunction: "FixedThreadPool::worker_loop (thread start)",
   },
   lock_attempt: {
-    currentCode: "attempt tasks_mtx lock",
-    sourceLocation: "src/jthreads/threadpool.cpp:117",
+    currentFunction: "std::unique_lock<std::mutex>::lock (attempt)",
   },
   worker_queue_lock_acquired: {
-    currentCode: "acquired queue mutex",
-    sourceLocation: "src/jthreads/threadpool.cpp:125",
+    currentFunction: "std::unique_lock<std::mutex>::lock",
   },
   lock_acquired: {
-    currentCode: "holding tasks_mtx",
-    sourceLocation: "src/jthreads/threadpool.cpp:126",
+    currentFunction: "std::mutex (locked)",
   },
   worker_wait_begin: {
-    currentCode: "begin condition wait",
-    sourceLocation: "src/jthreads/threadpool.cpp:128",
+    currentFunction: "std::condition_variable::wait",
   },
   worker_wait_end: {
-    currentCode: "woke from condition wait",
-    sourceLocation: "src/jthreads/threadpool.cpp:136",
+    currentFunction: "std::condition_variable::wait (wake)",
   },
   task_dequeued: {
-    currentCode: "pop task from queue",
-    sourceLocation: "src/jthreads/threadpool.cpp:143",
+    currentFunction: "std::queue::pop (task dequeue)",
   },
   lock_released: {
-    currentCode: "release tasks_mtx",
-    sourceLocation: "src/jthreads/threadpool.cpp:152",
+    currentFunction: "std::mutex::unlock",
   },
   task_start: {
-    currentCode: "execute task callback",
-    sourceLocation: "src/jthreads/threadpool.cpp:166",
+    currentFunction: "task callback entry",
   },
   task_end: {
-    currentCode: "finish task callback",
-    sourceLocation: "src/jthreads/threadpool.cpp:172",
+    currentFunction: "task callback exit",
   },
   worker_stop: {
-    currentCode: "exit worker thread",
-    sourceLocation: "src/jthreads/threadpool.cpp:140",
+    currentFunction: "FixedThreadPool::worker_loop (thread stop)",
   },
   task_submit: {
-    currentCode: "submit task into pool",
-    sourceLocation: "src/jthreads/threadpool.h:27",
+    currentFunction: "FixedThreadPool::submit",
   },
   submit_lock_acquired: {
-    currentCode: "submit acquired tasks_mtx",
-    sourceLocation: "src/jthreads/threadpool.h:41",
+    currentFunction: "std::unique_lock<std::mutex>::lock (submit)",
   },
   task_enqueued: {
-    currentCode: "enqueue task into queue",
-    sourceLocation: "src/jthreads/threadpool.h:54",
+    currentFunction: "std::queue::emplace (task enqueue)",
   },
   worker_notified: {
-    currentCode: "notify waiting worker",
-    sourceLocation: "src/jthreads/threadpool.h:55",
+    currentFunction: "std::condition_variable::notify_one",
   },
   shutdown_begin: {
-    currentCode: "begin pool shutdown",
-    sourceLocation: "src/jthreads/threadpool.cpp:92",
+    currentFunction: "FixedThreadPool::shutdown",
   },
   shutdown_notify_all: {
-    currentCode: "notify all workers",
-    sourceLocation: "src/jthreads/threadpool.cpp:96",
+    currentFunction: "FixedThreadPool::shutdown",
   },
   shutdown_join_wait: {
-    currentCode: "join worker thread",
-    sourceLocation: "src/jthreads/threadpool.cpp:100",
+    currentFunction: "FixedThreadPool::shutdown",
   },
   shutdown_join_done: {
-    currentCode: "worker joined",
-    sourceLocation: "src/jthreads/threadpool.cpp:102",
+    currentFunction: "FixedThreadPool::shutdown",
   },
   shutdown_complete: {
-    currentCode: "shutdown complete",
-    sourceLocation: "src/jthreads/threadpool.cpp:105",
+    currentFunction: "FixedThreadPool::shutdown",
+  },
+  task_sleep_begin: {
+    currentFunction: "std::this_thread::sleep_for",
+  },
+  task_sleep_end: {
+    currentFunction: "std::this_thread::sleep_for (end)",
+  },
+  task_print: {
+    currentFunction: "std::cout::operator<<",
   },
 };
 
@@ -128,11 +116,10 @@ export function getThreads(events: TraceEvent[]): number[] {
   return [...new Set(events.map((e) => e.thread))].sort((a, b) => a - b);
 }
 
-function getCodePoint(event: TraceEvent): CodePoint {
+function getFunctionPoint(event: TraceEvent): FunctionPoint {
   return (
-    EVENT_CODE_MAP[event.event] ?? {
-      currentCode: `event: ${event.event}`,
-      sourceLocation: "trace event (no direct source mapping)",
+    EVENT_FUNCTION_MAP[event.event] ?? {
+      currentFunction: "(unknown function)",
     }
   );
 }
@@ -266,7 +253,7 @@ export function getThreadSnapshotsAt(events: TraceEvent[], taskIntervals: TaskIn
   const threads = [...latestByThread.keys()].sort((a, b) => a - b);
   return threads.map((thread) => {
     const latest = latestByThread.get(thread);
-    const codePoint = latest ? getCodePoint(latest) : { currentCode: "idle", sourceLocation: "n/a" };
+    const functionPoint = latest ? getFunctionPoint(latest) : { currentFunction: "(idle)" };
     const waitingOnLock = waitingByThread.get(thread) ?? null;
     return {
       thread,
@@ -274,8 +261,7 @@ export function getThreadSnapshotsAt(events: TraceEvent[], taskIntervals: TaskIn
       activeTaskId: activeTaskByThread.get(thread) ?? null,
       waitingOnLock,
       currentEvent: latest?.event ?? "none",
-      currentCode: codePoint.currentCode,
-      sourceLocation: codePoint.sourceLocation,
+      currentFunction: functionPoint.currentFunction,
     };
   });
 }

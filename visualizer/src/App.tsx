@@ -271,8 +271,7 @@ function App() {
                 <th>State</th>
                 <th>Task</th>
                 <th>Lock Wait</th>
-                <th>Current Code</th>
-                <th>Source</th>
+                
               </tr>
             </thead>
             <tbody>
@@ -282,8 +281,7 @@ function App() {
                   <td>{snapshot.state}</td>
                   <td>{snapshot.activeTaskId === null ? "-" : snapshot.activeTaskId}</td>
                   <td>{snapshot.waitingOnLock ?? "-"}</td>
-                  <td>{snapshot.currentCode}</td>
-                  <td>{snapshot.sourceLocation}</td>
+                  
                 </tr>
               ))}
             </tbody>

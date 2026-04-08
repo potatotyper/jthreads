@@ -31,6 +31,7 @@ public:
     );
     std::future<R> result = task_pack->get_future();
 
+    trace_event("lock_attempt", static_cast<int64_t>(task_id), -1, -1, "waiting", "tasks_mtx");
     const auto lock_wait_begin = std::chrono::steady_clock::now();
     std::unique_lock<std::mutex> lk(tasks_mtx_);
     const auto lock_wait_end = std::chrono::steady_clock::now();
@@ -38,6 +39,7 @@ public:
       lock_wait_end - lock_wait_begin
     ).count();
     trace_event("submit_lock_acquired", static_cast<int64_t>(task_id), lock_wait_us);
+    trace_event("lock_acquired", static_cast<int64_t>(task_id), lock_wait_us, -1, "held", "tasks_mtx");
 
     if (!running_) {
       trace_event("task_submit_rejected", static_cast<int64_t>(task_id), -1, -1, "pool_stopped");
@@ -46,6 +48,7 @@ public:
 
     tasks_.emplace(task_id, [task_pack]{ (*task_pack)(); });
     const auto queue_size = static_cast<int64_t>(tasks_.size());
+    trace_event("lock_released", static_cast<int64_t>(task_id), -1, queue_size, "released", "tasks_mtx");
     lk.unlock();
 
     trace_event("task_enqueued", static_cast<int64_t>(task_id), -1, queue_size, "queued");
@@ -63,7 +66,10 @@ private:
     int64_t task_id = -1,
     int64_t duration_us = -1,
     int64_t queue_size = -1,
-    const char* state = nullptr
+    const char* state = nullptr,
+    const char* lock_name = nullptr,
+    const char* flag_name = nullptr,
+    int64_t flag_value = -1
   );
 
   void worker_loop();

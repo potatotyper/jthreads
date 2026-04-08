@@ -40,6 +40,5 @@ export type ThreadSnapshot = {
   activeTaskId: number | null;
   waitingOnLock: string | null;
   currentEvent: string;
-  currentCode: string;
-  sourceLocation: string;
+  currentFunction: string;
 };
