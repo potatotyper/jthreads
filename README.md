@@ -1,6 +1,6 @@
 # jthreads
 
-A spinoff of CPSC 213 uthreads threadpool program (no code copied) with a vizualiser to help students further undestand the basics of threadpools and multihreadding :)
+A spinoff of CPSC 213 uthreads threadpool program (no code used from uthread library for this program) with a vizualiser to help students further undestand the basics of threadpools and multihreadding :)
 
 ## Jthreads library how to use
 #### Thread functions
