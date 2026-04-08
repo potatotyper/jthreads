@@ -33,15 +33,9 @@ If `npm install` shows UNC path errors (for example `\\wsl.localhost\...` and `C
 Use Linux Node inside WSL via nvm:
 
 ```bash
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] || curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-. "$NVM_DIR/nvm.sh"
-nvm install --lts
-nvm use --lts
-
 cd visualizer
-rm -rf node_modules package-lock.json
 npm install
+npm run start dev
 ```
 
 ### Supported features
