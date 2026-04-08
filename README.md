@@ -2,6 +2,30 @@
 
 A spinoff of CPSC 213 Uthreads threadpool program (no code copied) with a vizualiser to help students further undestand the basics of threadpools and multihreadding :)
 
+## Jthreads library how to use
+#### Thread functions
+- jthread_init()
+- jthread_create()
+- jthread_self()
+- jthread_block()
+- jthread_unblock()
+- jthread_join()
+- jthread_detach()
+- jthread_yield()
+
+#### Mutex functions
+- jthread_mutex_create()
+- jthread_mutex_lock()
+- jthread_mutex_unlock()
+- jthread_mutex_destroy()
+
+#### Condition variable functions
+- jthread_cond_create()
+- jthread_cond_wait()
+- jthread_cond_signal()
+- jthread_cond_broadcast()
+-jthread_cond_destroy()
+
 ## Build and run C++ example
 
 ```bash
