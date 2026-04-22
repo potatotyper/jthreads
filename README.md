@@ -24,7 +24,7 @@ A spinoff of CPSC 213 uthreads threadpool program (no code used from uthread lib
 - jthread_cond_wait()
 - jthread_cond_signal()
 - jthread_cond_broadcast()
--jthread_cond_destroy()
+- jthread_cond_destroy()
 
 ## Build and run C++ example
 
