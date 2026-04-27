@@ -17,6 +17,8 @@ export type TaskInterval = {
   start: number;
   end: number;
   durationUs: number;
+  label?: string;
+  kind?: "task" | "jthread";
 };
 
 export type LockWaitInterval = {

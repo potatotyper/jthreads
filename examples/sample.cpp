@@ -1,29 +1,69 @@
-#include "jthreads/threadpool.h"
-#include "jthreads/tracer.h"
+#include "jthreads/jthread.h"
+
 #include <iostream>
-#include <chrono>
+
+namespace {
+
+struct DemoState {
+  jthread_mutex_t* mutex = nullptr;
+  jthread_cond_t* ready_cv = nullptr;
+  jthread_cond_t* start_cv = nullptr;
+  int ready_count = 0;
+  bool start = false;
+  int counter = 0;
+};
+
+void* worker_main(void* arg) {
+  auto* state = static_cast<DemoState*>(arg);
+
+  jthread_mutex_lock(state->mutex);
+  ++state->ready_count;
+  jthread_cond_signal(state->ready_cv);
+
+  while (!state->start) {
+    jthread_cond_wait(state->start_cv);
+  }
+
+  auto* result = new int(++state->counter);
+  jthread_mutex_unlock(state->mutex);
+  return result;
+}
+
+}  // namespace
 
 int main() {
-  Tracer::init("trace1.json");
-  FixedThreadPool pool(4);
+  jthread_init("trace1.json");
 
-  auto f1 = pool.submit([]{
-    Tracer::emit_event("task_sleep_begin", "sleeping", 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-    Tracer::emit_event("task_sleep_end", "awake", 1);
-    Tracer::emit_event("task_print", "printing", 1);
-    std::cout << "task 1\n";
-  });
-  auto f2 = pool.submit([]{
-    Tracer::emit_event("task_sleep_begin", "sleeping", 2);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10000));
-    Tracer::emit_event("task_sleep_end", "awake", 2);
-    Tracer::emit_event("task_print", "printing", 2);
-    std::cout << "task 2\n";
-  });
+  DemoState state;
+  state.mutex = jthread_mutex_create("demo_mutex");
+  state.ready_cv = jthread_cond_create(state.mutex, "ready_cv");
+  state.start_cv = jthread_cond_create(state.mutex, "start_cv");
 
-  f1.get();
-  f2.get();
-  pool.shutdown();
+  jthread_t* first = jthread_create(worker_main, &state);
+  jthread_t* second = jthread_create(worker_main, &state);
+
+  jthread_mutex_lock(state.mutex);
+  while (state.ready_count < 2) {
+    jthread_cond_wait(state.ready_cv);
+  }
+  state.start = true;
+  jthread_cond_broadcast(state.start_cv);
+  jthread_mutex_unlock(state.mutex);
+
+  void* first_value = nullptr;
+  void* second_value = nullptr;
+  jthread_join(first, &first_value);
+  jthread_join(second, &second_value);
+
+  auto* first_result = static_cast<int*>(first_value);
+  auto* second_result = static_cast<int*>(second_value);
+  std::cout << "worker results: " << *first_result << ", " << *second_result << "\n";
+
+  delete first_result;
+  delete second_result;
+  jthread_cond_destroy(state.start_cv);
+  jthread_cond_destroy(state.ready_cv);
+  jthread_mutex_destroy(state.mutex);
+
   return 0;
 }

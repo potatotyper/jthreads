@@ -344,9 +344,9 @@ function ThreadLane({ thread, bounds, playhead, tasks, lockWaits }: LaneProps) {
               key={`${task.taskId}-${task.start}`}
               className="task-bar"
               style={{ left: `${left}%`, width: `${Math.max(width, 0.2)}%`, background: color }}
-              title={`task ${task.taskId} | ${fmtSeconds(task.start)} -> ${fmtSeconds(task.end)}`}
+              title={`${task.label ?? `task ${task.taskId}`} | ${fmtSeconds(task.start)} -> ${fmtSeconds(task.end)}`}
             >
-              <span>task {task.taskId}</span>
+              <span>{task.label ?? `task ${task.taskId}`}</span>
             </div>
           );
         })}

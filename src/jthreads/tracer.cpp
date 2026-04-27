@@ -32,6 +32,47 @@ uint64_t thread_number() {
   ids.emplace(std::this_thread::get_id(), assigned);
   return assigned;
 }
+
+std::string json_escape(const char* raw) {
+  std::ostringstream escaped;
+  const std::string value = raw != nullptr ? raw : "";
+  for (const char ch : value) {
+    switch (ch) {
+      case '"':
+        escaped << "\\\"";
+        break;
+      case '\\':
+        escaped << "\\\\";
+        break;
+      case '\b':
+        escaped << "\\b";
+        break;
+      case '\f':
+        escaped << "\\f";
+        break;
+      case '\n':
+        escaped << "\\n";
+        break;
+      case '\r':
+        escaped << "\\r";
+        break;
+      case '\t':
+        escaped << "\\t";
+        break;
+      default:
+        if (static_cast<unsigned char>(ch) < 0x20) {
+          escaped << "\\u"
+                  << std::hex << std::setw(4) << std::setfill('0')
+                  << static_cast<int>(static_cast<unsigned char>(ch))
+                  << std::dec << std::setfill(' ');
+        } else {
+          escaped << ch;
+        }
+        break;
+    }
+  }
+  return escaped.str();
+}
 }
 
 std::mutex Tracer::mtx;
@@ -39,6 +80,9 @@ std::ofstream Tracer::out;
 
 void Tracer::init(const std::string& path) {
   std::lock_guard<std::mutex> g(mtx);
+  if (out.is_open()) {
+    out.close();
+  }
   out.open(path, std::ios::out | std::ios::trunc);
 }
 
@@ -60,8 +104,8 @@ void Tracer::emit_event(
   int64_t flag_value
 ) {
   std::ostringstream oss;
-  oss << "{\"event\":\"" << event << "\"";
-  oss << ",\"state\":\"" << (state != nullptr ? state : "n/a") << "\"";
+  oss << "{\"event\":\"" << json_escape(event) << "\"";
+  oss << ",\"state\":\"" << json_escape(state != nullptr ? state : "n/a") << "\"";
 
   if (task_id >= 0) {
     oss << ",\"task_id\":" << task_id;
@@ -73,10 +117,10 @@ void Tracer::emit_event(
     oss << ",\"duration_us\":" << duration_us;
   }
   if (lock_name != nullptr) {
-    oss << ",\"lock\":\"" << lock_name << "\"";
+    oss << ",\"lock\":\"" << json_escape(lock_name) << "\"";
   }
   if (flag_name != nullptr) {
-    oss << ",\"flag\":\"" << flag_name << "\"";
+    oss << ",\"flag\":\"" << json_escape(flag_name) << "\"";
   }
   if (flag_value >= 0) {
     oss << ",\"flag_value\":" << flag_value;

@@ -74,6 +74,72 @@ const EVENT_FUNCTION_MAP: Record<string, FunctionPoint> = {
   task_print: {
     currentFunction: "std::cout::operator<<",
   },
+  jthread_init: {
+    currentFunction: "jthread_init",
+  },
+  jthread_register: {
+    currentFunction: "jthread runtime registration",
+  },
+  jthread_create: {
+    currentFunction: "jthread_create",
+  },
+  jthread_self: {
+    currentFunction: "jthread_self",
+  },
+  jthread_start: {
+    currentFunction: "jthread start procedure entry",
+  },
+  jthread_finish: {
+    currentFunction: "jthread start procedure exit",
+  },
+  jthread_block_begin: {
+    currentFunction: "jthread_block",
+  },
+  jthread_block_end: {
+    currentFunction: "jthread_block (wake)",
+  },
+  jthread_unblock: {
+    currentFunction: "jthread_unblock",
+  },
+  jthread_join_wait: {
+    currentFunction: "jthread_join",
+  },
+  jthread_join_done: {
+    currentFunction: "jthread_join",
+  },
+  jthread_detach: {
+    currentFunction: "jthread_detach",
+  },
+  jthread_yield: {
+    currentFunction: "jthread_yield",
+  },
+  jthread_yield_done: {
+    currentFunction: "jthread_yield (return)",
+  },
+  jthread_mutex_create: {
+    currentFunction: "jthread_mutex_create",
+  },
+  jthread_mutex_destroy: {
+    currentFunction: "jthread_mutex_destroy",
+  },
+  jthread_cond_create: {
+    currentFunction: "jthread_cond_create",
+  },
+  jthread_cond_wait_begin: {
+    currentFunction: "jthread_cond_wait",
+  },
+  jthread_cond_wait_end: {
+    currentFunction: "jthread_cond_wait (wake)",
+  },
+  jthread_cond_signal: {
+    currentFunction: "jthread_cond_signal",
+  },
+  jthread_cond_broadcast: {
+    currentFunction: "jthread_cond_broadcast",
+  },
+  jthread_cond_destroy: {
+    currentFunction: "jthread_cond_destroy",
+  },
 };
 
 export function parseTraceJsonLines(raw: string): TraceEvent[] {
@@ -125,28 +191,62 @@ function getFunctionPoint(event: TraceEvent): FunctionPoint {
 }
 
 export function buildTaskIntervals(events: TraceEvent[]): TaskInterval[] {
-  const starts = new Map<number, TraceEvent>();
+  const starts = new Map<string, { event: TraceEvent; label: string; kind: "task" | "jthread" }>();
   const intervals: TaskInterval[] = [];
 
   for (const event of events) {
     if (event.event === "task_start" && event.task_id !== undefined) {
-      starts.set(event.task_id, event);
+      starts.set(`task:${event.task_id}`, {
+        event,
+        label: `task ${event.task_id}`,
+        kind: "task",
+      });
+    }
+
+    if (event.event === "jthread_start" && event.task_id !== undefined) {
+      starts.set(`jthread:${event.task_id}`, {
+        event,
+        label: `jthread ${event.task_id}`,
+        kind: "jthread",
+      });
     }
 
     if (event.event === "task_end" && event.task_id !== undefined) {
-      const start = starts.get(event.task_id);
+      const start = starts.get(`task:${event.task_id}`);
       if (!start) {
         continue;
       }
-      const durationUs = event.duration_us ?? Math.max(0, (event.time_since_started_s - start.time_since_started_s) * 1e6);
+      const startEvent = start.event;
+      const durationUs = event.duration_us ?? Math.max(0, (event.time_since_started_s - startEvent.time_since_started_s) * 1e6);
       intervals.push({
         taskId: event.task_id,
-        thread: start.thread,
-        start: start.time_since_started_s,
+        thread: startEvent.thread,
+        start: startEvent.time_since_started_s,
         end: event.time_since_started_s,
         durationUs,
+        label: start.label,
+        kind: start.kind,
       });
-      starts.delete(event.task_id);
+      starts.delete(`task:${event.task_id}`);
+    }
+
+    if (event.event === "jthread_finish" && event.task_id !== undefined) {
+      const start = starts.get(`jthread:${event.task_id}`);
+      if (!start) {
+        continue;
+      }
+      const startEvent = start.event;
+      const durationUs = event.duration_us ?? Math.max(0, (event.time_since_started_s - startEvent.time_since_started_s) * 1e6);
+      intervals.push({
+        taskId: event.task_id,
+        thread: startEvent.thread,
+        start: startEvent.time_since_started_s,
+        end: event.time_since_started_s,
+        durationUs,
+        label: start.label,
+        kind: start.kind,
+      });
+      starts.delete(`jthread:${event.task_id}`);
     }
   }
 
