@@ -182,6 +182,13 @@ td {
   padding: 6px 4px;
 }
 
+.function-name {
+  color: #a7f3d0;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
 .metric {
   margin-top: 0;
   color: #fef08a;

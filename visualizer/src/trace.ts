@@ -6,28 +6,28 @@ type FunctionPoint = {
 
 const EVENT_FUNCTION_MAP: Record<string, FunctionPoint> = {
   worker_start: {
-    currentFunction: "FixedThreadPool::worker_loop (thread start)",
+    currentFunction: "jthread worker start",
   },
   lock_attempt: {
-    currentFunction: "std::unique_lock<std::mutex>::lock (attempt)",
+    currentFunction: "jthread_mutex_lock (wait)",
   },
   worker_queue_lock_acquired: {
-    currentFunction: "std::unique_lock<std::mutex>::lock",
+    currentFunction: "jthread_mutex_lock",
   },
   lock_acquired: {
-    currentFunction: "std::mutex (locked)",
+    currentFunction: "jthread_mutex_lock",
   },
   worker_wait_begin: {
-    currentFunction: "std::condition_variable::wait",
+    currentFunction: "jthread_cond_wait",
   },
   worker_wait_end: {
-    currentFunction: "std::condition_variable::wait (wake)",
+    currentFunction: "jthread_cond_wait (wake)",
   },
   task_dequeued: {
-    currentFunction: "std::queue::pop (task dequeue)",
+    currentFunction: "task dequeue",
   },
   lock_released: {
-    currentFunction: "std::mutex::unlock",
+    currentFunction: "jthread_mutex_unlock",
   },
   task_start: {
     currentFunction: "task callback entry",
@@ -36,43 +36,43 @@ const EVENT_FUNCTION_MAP: Record<string, FunctionPoint> = {
     currentFunction: "task callback exit",
   },
   worker_stop: {
-    currentFunction: "FixedThreadPool::worker_loop (thread stop)",
+    currentFunction: "jthread worker stop",
   },
   task_submit: {
-    currentFunction: "FixedThreadPool::submit",
+    currentFunction: "jthread_create",
   },
   submit_lock_acquired: {
-    currentFunction: "std::unique_lock<std::mutex>::lock (submit)",
+    currentFunction: "jthread_mutex_lock",
   },
   task_enqueued: {
-    currentFunction: "std::queue::emplace (task enqueue)",
+    currentFunction: "task enqueue",
   },
   worker_notified: {
-    currentFunction: "std::condition_variable::notify_one",
+    currentFunction: "jthread_cond_signal",
   },
   shutdown_begin: {
-    currentFunction: "FixedThreadPool::shutdown",
+    currentFunction: "jthread shutdown",
   },
   shutdown_notify_all: {
-    currentFunction: "FixedThreadPool::shutdown",
+    currentFunction: "jthread_cond_broadcast",
   },
   shutdown_join_wait: {
-    currentFunction: "FixedThreadPool::shutdown",
+    currentFunction: "jthread_join",
   },
   shutdown_join_done: {
-    currentFunction: "FixedThreadPool::shutdown",
+    currentFunction: "jthread_join",
   },
   shutdown_complete: {
-    currentFunction: "FixedThreadPool::shutdown",
+    currentFunction: "jthread shutdown",
   },
   task_sleep_begin: {
-    currentFunction: "std::this_thread::sleep_for",
+    currentFunction: "sleep",
   },
   task_sleep_end: {
-    currentFunction: "std::this_thread::sleep_for (end)",
+    currentFunction: "sleep (return)",
   },
   task_print: {
-    currentFunction: "std::cout::operator<<",
+    currentFunction: "print",
   },
   jthread_init: {
     currentFunction: "jthread_init",
@@ -107,6 +107,9 @@ const EVENT_FUNCTION_MAP: Record<string, FunctionPoint> = {
   jthread_join_done: {
     currentFunction: "jthread_join",
   },
+  jthread_join: {
+    currentFunction: "jthread_join",
+  },
   jthread_detach: {
     currentFunction: "jthread_detach",
   },
@@ -119,6 +122,12 @@ const EVENT_FUNCTION_MAP: Record<string, FunctionPoint> = {
   jthread_mutex_create: {
     currentFunction: "jthread_mutex_create",
   },
+  jthread_mutex_lock: {
+    currentFunction: "jthread_mutex_lock",
+  },
+  jthread_mutex_unlock: {
+    currentFunction: "jthread_mutex_unlock",
+  },
   jthread_mutex_destroy: {
     currentFunction: "jthread_mutex_destroy",
   },
@@ -130,6 +139,9 @@ const EVENT_FUNCTION_MAP: Record<string, FunctionPoint> = {
   },
   jthread_cond_wait_end: {
     currentFunction: "jthread_cond_wait (wake)",
+  },
+  jthread_cond_wait: {
+    currentFunction: "jthread_cond_wait",
   },
   jthread_cond_signal: {
     currentFunction: "jthread_cond_signal",
@@ -183,6 +195,24 @@ export function getThreads(events: TraceEvent[]): number[] {
 }
 
 function getFunctionPoint(event: TraceEvent): FunctionPoint {
+  if (event.event === "flag_set" && event.flag === "jthreads") {
+    return {
+      currentFunction: "jthread_init",
+    };
+  }
+
+  if (event.event === "lock_released" && event.state === "cond_wait_release") {
+    return {
+      currentFunction: "jthread_cond_wait (release mutex)",
+    };
+  }
+
+  if (event.event === "lock_acquired" && event.state === "cond_wait_reacquired") {
+    return {
+      currentFunction: "jthread_cond_wait (reacquire mutex)",
+    };
+  }
+
   return (
     EVENT_FUNCTION_MAP[event.event] ?? {
       currentFunction: "(unknown function)",

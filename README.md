@@ -14,13 +14,13 @@ A spinoff of CPSC 213 uthreads threadpool program (no code used from uthread lib
 - jthread_yield()
 
 #### Mutex functions
-- jthread_mutex_create(debug_name = nullptr)
+- jthread_mutex_create(mutex_name = nullptr)
 - jthread_mutex_lock(mutex)
 - jthread_mutex_unlock(mutex)
 - jthread_mutex_destroy(mutex)
 
 #### Condition variable functions
-- jthread_cond_create(mutex = nullptr, debug_name = nullptr)
+- jthread_cond_create(mutex, cond_name = nullptr)
 - jthread_cond_wait(cond)
 - jthread_cond_wait(cond, mutex)
 - jthread_cond_signal(cond)

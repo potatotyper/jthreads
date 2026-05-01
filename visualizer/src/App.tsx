@@ -149,9 +149,9 @@ function App() {
   return (
     <div className="app-shell">
       <header className="hero">
-        <h1>Threadpool Time Visualizer</h1>
+        <h1>jthreads Trace Visualizer</h1>
         <p>
-          Move t to inspect how each thread changes state, when tasks run, and where lock contention appears.
+          Move t to inspect how each jthread changes state, which library function is active, and where lock contention appears.
         </p>
       </header>
 
@@ -269,9 +269,9 @@ function App() {
               <tr>
                 <th>Thread</th>
                 <th>State</th>
+                <th>Function</th>
                 <th>Task</th>
                 <th>Lock Wait</th>
-                
               </tr>
             </thead>
             <tbody>
@@ -279,9 +279,11 @@ function App() {
                 <tr key={snapshot.thread}>
                   <td>#{snapshot.thread}</td>
                   <td>{snapshot.state}</td>
+                  <td className="function-name" title={snapshot.currentEvent}>
+                    {snapshot.currentFunction}
+                  </td>
                   <td>{snapshot.activeTaskId === null ? "-" : snapshot.activeTaskId}</td>
                   <td>{snapshot.waitingOnLock ?? "-"}</td>
-                  
                 </tr>
               ))}
             </tbody>
