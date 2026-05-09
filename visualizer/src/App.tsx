@@ -212,7 +212,7 @@ function App() {
 
   const loadSample = async () => {
     try {
-      const res = await fetch("/trace1.json");
+      const res = await fetch(`${import.meta.env.BASE_URL}trace1.json`);
       if (!res.ok) {
         setError("Sample trace not found.");
         return;
