@@ -234,15 +234,19 @@ function App() {
           <span className="brand">
             Potatotyper
           </span>
-          <a className="home-button" href="https://potatotyper.page/home">
-            Home
-          </a>
+          <nav className="header-actions" aria-label="Primary links">
+            <a className="home-button" href="https://potatotyper.page/home">
+              Home
+            </a>
+            <a className="home-button" href="https://github.com/potatotyper/jthreads" target="_blank" rel="noreferrer">
+              Library + Repo
+            </a>
+          </nav>
         </div>
       </header>
 
       <div className="app-shell">
         <header className="hero">
-          <p className="eyebrow">HELLO, I AM A THREAD VISUALIZER</p>
           <h1>jthreads Trace Visualizer</h1>
           <p>
             Move t to inspect how each jthread changes state, which library function is active, and where lock contention appears.
@@ -255,14 +259,6 @@ function App() {
             The bundled sample uses five simple worker functions. Each one calls jthread_sleep for a random 4-5 seconds,
             updates either the shared counter or shared word, then sleeps again and updates the other kind of value.
           </p>
-          <div className="sample-points">
-            <span>thread_one through thread_five have matching sleep/update steps</span>
-            <span>jthread_sleep has a gray fill with a green outline</span>
-            <span>counter_mutex protects the shared counter</span>
-            <span>word_mutex protects the shared word</span>
-            <span>each step changes counter or word, not both</span>
-            <span>main joins all five workers</span>
-          </div>
         </section>
 
         <section className="card controls">
