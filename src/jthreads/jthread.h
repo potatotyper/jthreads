@@ -17,6 +17,7 @@ void jthread_unblock(jthread_t* thread);
 void jthread_join(jthread_t* thread, void** value_ptr = nullptr);
 void jthread_detach(jthread_t* thread);
 void jthread_yield();
+void jthread_sleep(int worker_id, int seconds);
 
 jthread_mutex_t* jthread_mutex_create(const char* debug_name = nullptr);
 void jthread_mutex_lock(jthread_mutex_t* mutex);

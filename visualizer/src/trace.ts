@@ -119,6 +119,12 @@ const EVENT_FUNCTION_MAP: Record<string, FunctionPoint> = {
   jthread_yield_done: {
     currentFunction: "jthread_yield (return)",
   },
+  jthread_sleep_begin: {
+    currentFunction: "jthread_sleep",
+  },
+  jthread_sleep_end: {
+    currentFunction: "jthread_sleep (return)",
+  },
   jthread_mutex_create: {
     currentFunction: "jthread_mutex_create",
   },
@@ -151,6 +157,27 @@ const EVENT_FUNCTION_MAP: Record<string, FunctionPoint> = {
   },
   jthread_cond_destroy: {
     currentFunction: "jthread_cond_destroy",
+  },
+  sample_begin: {
+    currentFunction: "sample setup",
+  },
+  sample_sleep_begin: {
+    currentFunction: "sleep_for",
+  },
+  sample_sleep_end: {
+    currentFunction: "sleep_for (return)",
+  },
+  sample_counter_change_begin: {
+    currentFunction: "change_counter",
+  },
+  sample_counter_changed: {
+    currentFunction: "change_counter",
+  },
+  sample_string_change_begin: {
+    currentFunction: "change_string",
+  },
+  sample_word_changed: {
+    currentFunction: "change_string",
   },
 };
 

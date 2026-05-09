@@ -1,4 +1,5 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import {
   buildFlags,
   buildLockWaitIntervals,
@@ -13,6 +14,7 @@ import {
 import { FlagPoint, LockWaitInterval, TaskInterval, TraceEvent } from "./types";
 
 type PlaybackSpeed = 0.25 | 0.5 | 1 | 2 | 4;
+type TaskVisualState = "blocked" | "waiting" | "sleeping" | "yielding" | "signaling" | "running" | "idle";
 
 const SPEED_OPTIONS: PlaybackSpeed[] = [0.25, 0.5, 1, 2, 4];
 
@@ -25,8 +27,87 @@ function fmtUs(value: number): string {
 }
 
 function threadColor(thread: number): string {
-  const palette = ["#ea580c", "#0284c7", "#059669", "#7c3aed", "#be123c", "#4f46e5"];
+  const palette = ["#38bdf8", "#34d399", "#f59e0b", "#a78bfa", "#fb7185", "#22d3ee"];
   return palette[(thread - 1) % palette.length];
+}
+
+function classifyTaskEvent(event: TraceEvent): TaskVisualState {
+  if (event.event === "jthread_sleep_begin" || event.state === "sleeping") {
+    return "sleeping";
+  }
+
+  if (
+    event.event.includes("signal") ||
+    event.event.includes("broadcast") ||
+    event.state.includes("signaling") ||
+    event.event === "worker_notified"
+  ) {
+    return "signaling";
+  }
+
+  if (event.event.includes("yield")) {
+    return "yielding";
+  }
+
+  if (event.event === "jthread_block_begin") {
+    return "blocked";
+  }
+
+  if (
+    event.event === "lock_attempt" ||
+    event.event === "worker_wait_begin" ||
+    event.event === "jthread_cond_wait_begin" ||
+    event.event === "jthread_join_wait" ||
+    event.event === "shutdown_join_wait" ||
+    event.state === "cond_wait_release" ||
+    event.state.includes("waiting") ||
+    event.state.includes("joining") ||
+    event.state.includes("blocked_on_condition")
+  ) {
+    return "waiting";
+  }
+
+  if (
+    event.event === "task_start" ||
+    event.event === "jthread_start" ||
+    event.event === "jthread_block_end" ||
+    event.event === "jthread_cond_wait_end" ||
+    event.event === "jthread_self" ||
+    event.event === "jthread_unblock" ||
+    event.event === "worker_wait_end" ||
+    event.event === "lock_acquired" ||
+    event.event === "lock_released" ||
+    event.event === "task_dequeued" ||
+    event.state === "running" ||
+    event.state === "current" ||
+    event.state === "held" ||
+    event.state === "released" ||
+    event.state === "woken" ||
+    event.state === "ready_to_run"
+  ) {
+    return "running";
+  }
+
+  return "idle";
+}
+
+function getTaskVisualState(task: TaskInterval, threadEvents: TraceEvent[], playhead: number): TaskVisualState {
+  if (playhead < task.start || playhead > task.end) {
+    return "idle";
+  }
+
+  let latest: TraceEvent | null = null;
+  for (const event of threadEvents) {
+    if (event.time_since_started_s < task.start) {
+      continue;
+    }
+    if (event.time_since_started_s > playhead) {
+      break;
+    }
+    latest = event;
+  }
+
+  return latest === null ? "running" : classifyTaskEvent(latest);
 }
 
 function App() {
@@ -147,19 +228,48 @@ function App() {
   };
 
   return (
-    <div className="app-shell">
-      <header className="hero">
-        <h1>jthreads Trace Visualizer</h1>
-        <p>
-          Move t to inspect how each jthread changes state, which library function is active, and where lock contention appears.
-        </p>
+    <>
+      <header className="site-header">
+        <div className="site-header-inner">
+          <span className="brand">
+            Potatotyper
+          </span>
+          <a className="home-button" href="https://potatotyper.page/home">
+            Home
+          </a>
+        </div>
       </header>
 
-      <section className="card controls">
+      <div className="app-shell">
+        <header className="hero">
+          <p className="eyebrow">HELLO, I AM A THREAD VISUALIZER</p>
+          <h1>jthreads Trace Visualizer</h1>
+          <p>
+            Move t to inspect how each jthread changes state, which library function is active, and where lock contention appears.
+          </p>
+        </header>
+
+        <section className="card sample-program">
+          <h2>Sample Program</h2>
+          <p>
+            The bundled sample uses five simple worker functions. Each one calls jthread_sleep for a random 4-5 seconds,
+            updates either the shared counter or shared word, then sleeps again and updates the other kind of value.
+          </p>
+          <div className="sample-points">
+            <span>thread_one through thread_five have matching sleep/update steps</span>
+            <span>jthread_sleep has a gray fill with a green outline</span>
+            <span>counter_mutex protects the shared counter</span>
+            <span>word_mutex protects the shared word</span>
+            <span>each step changes counter or word, not both</span>
+            <span>main joins all five workers</span>
+          </div>
+        </section>
+
+        <section className="card controls">
         <div className="control-row">
-          <button onClick={loadSample}>Load sample trace1.json</button>
+          <button onClick={loadSample}>Load Sample</button>
           <label className="file-input">
-            Upload trace JSONL
+            Upload trace JSON
             <input
               type="file"
               accept=".json,.jsonl,.txt"
@@ -257,6 +367,7 @@ function App() {
             playhead={playhead}
             tasks={taskIntervals.filter((interval) => interval.thread === thread)}
             lockWaits={lockWaits.filter((wait) => wait.thread === thread)}
+            threadEvents={events.filter((event) => event.thread === thread)}
           />
         ))}
       </section>
@@ -314,7 +425,44 @@ function App() {
           </ul>
         </div>
       </section>
-    </div>
+
+      <section className="card state-legend">
+        <h2>State Legend</h2>
+        <div className="state-grid">
+          <StateLegendItem
+            state="blocked"
+            title="Blocked"
+            description="The thread has called jthread_block and is unavailable until another thread unblocks it."
+          />
+          <StateLegendItem
+            state="waiting"
+            title="Waiting"
+            description="The thread is waiting for a lock, condition variable, or join target before it can continue."
+          />
+          <StateLegendItem
+            state="sleeping"
+            title="Sleeping"
+            description="The thread is inside jthread_sleep; it is paused by time, not waiting on a synchronization primitive."
+          />
+          <StateLegendItem
+            state="yielding"
+            title="Yielding"
+            description="The thread voluntarily gave the scheduler a chance to run other work."
+          />
+          <StateLegendItem
+            state="running"
+            title="Running"
+            description="The task or jthread is actively executing or has just resumed useful work."
+          />
+          <StateLegendItem
+            state="signaling"
+            title="Signaling"
+            description="The thread is waking one or more waiting threads with signal, broadcast, or notify."
+          />
+        </div>
+      </section>
+      </div>
+    </>
   );
 }
 
@@ -324,9 +472,28 @@ type LaneProps = {
   playhead: number;
   tasks: TaskInterval[];
   lockWaits: LockWaitInterval[];
+  threadEvents: TraceEvent[];
 };
 
-function ThreadLane({ thread, bounds, playhead, tasks, lockWaits }: LaneProps) {
+type StateLegendItemProps = {
+  state: Exclude<TaskVisualState, "idle">;
+  title: string;
+  description: string;
+};
+
+function StateLegendItem({ state, title, description }: StateLegendItemProps) {
+  return (
+    <article className="state-item">
+      <div className={`state-marker state-marker--${state}`} aria-hidden="true" />
+      <div>
+        <h3>{title}</h3>
+        <p>{description}</p>
+      </div>
+    </article>
+  );
+}
+
+function ThreadLane({ thread, bounds, playhead, tasks, lockWaits, threadEvents }: LaneProps) {
   const span = Math.max(bounds.max - bounds.min, 0.000001);
   const color = threadColor(thread);
 
@@ -341,12 +508,19 @@ function ThreadLane({ thread, bounds, playhead, tasks, lockWaits }: LaneProps) {
         {tasks.map((task) => {
           const left = ((task.start - bounds.min) / span) * 100;
           const width = ((task.end - task.start) / span) * 100;
+          const visualState = getTaskVisualState(task, threadEvents, playhead);
+          const style = {
+            left: `${left}%`,
+            width: `${Math.max(width, 0.2)}%`,
+            "--task-color": color,
+          } as CSSProperties;
+
           return (
             <div
               key={`${task.taskId}-${task.start}`}
-              className="task-bar"
-              style={{ left: `${left}%`, width: `${Math.max(width, 0.2)}%`, background: color }}
-              title={`${task.label ?? `task ${task.taskId}`} | ${fmtSeconds(task.start)} -> ${fmtSeconds(task.end)}`}
+              className={`task-bar task-bar--${visualState}`}
+              style={style}
+              title={`${task.label ?? `task ${task.taskId}`} | ${visualState} | ${fmtSeconds(task.start)} -> ${fmtSeconds(task.end)}`}
             >
               <span>{task.label ?? `task ${task.taskId}`}</span>
             </div>

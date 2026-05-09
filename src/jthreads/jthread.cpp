@@ -354,6 +354,21 @@ void jthread_yield() {
   trace_event("jthread_yield_done", "running", static_cast<int64_t>(current_thread->id));
 }
 
+void jthread_sleep(int worker_id, int seconds) {
+  ensure_initialized();
+  if (seconds < 0) {
+    trace_event("jthread_sleep", "invalid_seconds", worker_id);
+    throw std::invalid_argument("jthread_sleep requires a non-negative duration");
+  }
+
+  trace_event("jthread_sleep_begin", "sleeping", worker_id);
+  const auto sleep_begin = std::chrono::steady_clock::now();
+  std::this_thread::sleep_for(std::chrono::seconds(seconds));
+  const auto sleep_end = std::chrono::steady_clock::now();
+  const auto sleep_us = std::chrono::duration_cast<std::chrono::microseconds>(sleep_end - sleep_begin).count();
+  trace_event("jthread_sleep_end", "running", worker_id, sleep_us);
+}
+
 jthread_mutex_t* jthread_mutex_create(const char* debug_name) {
   ensure_initialized();
 

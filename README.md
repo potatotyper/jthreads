@@ -12,6 +12,7 @@ A spinoff of CPSC 213 uthreads threadpool program (no code used from uthread lib
 - jthread_join(thread, &return_value)
 - jthread_detach(thread)
 - jthread_yield()
+- jthread_sleep(worker_id, seconds)
 
 #### Mutex functions
 - jthread_mutex_create(mutex_name = nullptr)
@@ -26,6 +27,14 @@ A spinoff of CPSC 213 uthreads threadpool program (no code used from uthread lib
 - jthread_cond_signal(cond)
 - jthread_cond_broadcast(cond)
 - jthread_cond_destroy(cond)
+
+#### Thread pool, task, tracing, and spinlock helpers
+- FixedThreadPool(num_workers)
+- FixedThreadPool::submit(callable)
+- FixedThreadPool::shutdown()
+- Task
+- Tracer::emit_event(...)
+- Spinlock
 
 ```cpp
 #include "jthreads/jthread.h"
@@ -53,9 +62,16 @@ All `jthread_*`, `jthread_mutex_*`, and `jthread_cond_*` calls emit visualizer t
 ```bash
 cmake -S . -B build
 cmake --build build
-./build/basicprogram1
-./build/jthreads_demo
+./build/sample
 ```
+
+The sample program is a simple five-thread jthread showcase. It defines five
+separate worker functions, and each one follows the same pattern: call
+`jthread_sleep` for a random 4-5 seconds, update either the shared counter or
+the shared string, then sleep again and update the other kind of value.
+`counter_mutex` protects the counter, `word_mutex` protects the string, and each
+update emits a condition-variable signal for the visualizer. It writes
+`trace1.json` in the directory where you run it.
 
 ## Visualizer
 
@@ -65,6 +81,16 @@ The visualizer is in `visualizer/` and uses React + TypeScript + Vite.
 cd visualizer
 npm install
 npm run dev
+```
+
+The Vite dev and preview servers are pinned to `0.0.0.0:5173` with strict port
+checking, so deploys fail clearly if that port is unavailable instead of moving
+to a different one. For a production-style local check:
+
+```bash
+cd visualizer
+npm run build
+npm run preview
 ```
 
 ### Supported features
