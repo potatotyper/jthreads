@@ -93,6 +93,27 @@ npm run build
 npm run preview
 ```
 
+To run the visualizer under PM2, build it and start the ecosystem config:
+
+```bash
+cd visualizer
+npm install
+npm run build
+pm2 start ecosystem.config.cjs
+pm2 save
+```
+
+If PM2 logs show npm looking for `/home/mkasa/apps/jthreads/package.json`, delete
+the old npm/Vite preview process and start the ecosystem config instead:
+
+```bash
+pm2 delete jthreads
+pm2 delete jthreads-visualizer
+pm2 delete potatotyper-site
+pm2 start /home/mkasa/apps/jthreads/visualizer/ecosystem.config.cjs
+pm2 save
+```
+
 ### Supported features
 
 - time cursor `t` via slider, playback controls, and numeric input
